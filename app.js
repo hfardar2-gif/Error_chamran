@@ -8,7 +8,7 @@ const state = { rows:[], headers:[], charts:[], filename:'', period:'', errors:0
 function clean(v){ return String(v ?? '').replace(/[\u200c\u200d]/g,' ').replace(/\s+/g,' ').trim(); }
 function dateParts(v){ const m=clean(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).match(/(1[34]\d{2})\D*(0?[1-9]|1[0-2])\D*(\d{1,2})/); return m?{year:m[1],month:Number(m[2]),day:Number(m[3])}:null; }
 function count(rows,field){ const m=new Map(); rows.forEach(r=>{const k=clean(r[field])||'ثبت نشده';m.set(k,(m.get(k)||0)+1)});return [...m].sort((a,b)=>b[1]-a[1]); }
-function top(rows,field,n=12){const a=count(rows,field);return a.length>n?[...a.slice(0,n),['سایر بخش‌ها',a.slice(n).reduce((s,x)=>s+x[1],0)]]:a}
+function topCounts(rows,field,n=12){const a=count(rows,field);return a.length>n?[...a.slice(0,n),['سایر بخش‌ها',a.slice(n).reduce((s,x)=>s+x[1],0)]]:a}
 function titleForPeriod(rows){let dates=rows.map(r=>dateParts(r['تاریخ وقوع خطا'])).filter(Boolean);let years=[...new Set(dates.map(d=>d.year))];let ms=[...new Set(dates.map(d=>d.month))].sort((a,b)=>a-b);return `${years.join('، ')||'نامشخص'} · ${ms.map(m=>months[m-1]).join('، ')||'ماه نامشخص'}`;}
 async function parseWorkbook(buffer){const z=await JSZip.loadAsync(buffer);const wb=z.file('xl/workbook.xml');if(!wb)throw Error('فایل، قالب معتبر Excel نیست.');
  const xml=s=>new DOMParser().parseFromString(s,'application/xml');const shared=z.file('xl/sharedStrings.xml')?xml(await z.file('xl/sharedStrings.xml').async('string')):null;
@@ -19,7 +19,7 @@ async function parseWorkbook(buffer){const z=await JSZip.loadAsync(buffer);const
  const headers=matrix[headIdx].map(clean);const required=['نام بخش گزارش دهنده','بخش 2','شیفت وقوع خطا','نوع گزارش خطا','تاریخ وقوع خطا','نوع خطا','سن بیمار','عنوان خطا','نوع خطا2','سمت'];let missing=required.filter(h=>!headers.includes(h));if(missing.length)throw Error('ستون‌های مورد نیاز یافت نشد: '+missing.join('، '));
  let rows=[],invalid=0;matrix.slice(headIdx+1).forEach(values=>{if(!values.some(v=>clean(v)))return;const r={};headers.forEach((h,i)=>{if(h)r[h]=values[i]??''});if(!dateParts(r['تاریخ وقوع خطا'])){invalid++;return}rows.push(r)});if(!rows.length)throw Error('هیچ رکورد دارای تاریخ معتبر پیدا نشد.');return {headers,rows,invalid};}
 function chartDefinitions(rows){let dated=rows.map(r=>dateParts(r['تاریخ وقوع خطا']));let keyed=new Map();dated.forEach(d=>{let key=`${d.year}/${String(d.month).padStart(2,'0')}`;keyed.set(key,(keyed.get(key)||0)+1)});let trend=[...keyed].sort((a,b)=>a[0].localeCompare(b[0])).map(([k,n])=>[`${months[Number(k.slice(-2))-1]} ${k.slice(0,4)}`,n]);
- const shift=count(rows,'شیفت وقوع خطا'), occurrence=top(rows,'بخش 2'), reporting=top(rows,'نام بخش گزارش دهنده'), types=count(rows,'نوع خطا'), reportType=count(rows,'نوع گزارش خطا'), errors=top(rows,'نوع خطا2'), roles=count(rows,'سمت'), causes=top(rows,'علت وقوع خطا');
+ const shift=count(rows,'شیفت وقوع خطا'), occurrence=topCounts(rows,'بخش 2'), reporting=topCounts(rows,'نام بخش گزارش دهنده'), types=count(rows,'نوع خطا'), reportType=count(rows,'نوع گزارش خطا'), errors=topCounts(rows,'نوع خطا2'), roles=count(rows,'سمت'), causes=topCounts(rows,'علت وقوع خطا');
  const ageBins=['۰–۱۸','۱۹–۳۰','۳۱–۴۰','۴۱–۵۰','۵۱–۶۰','۶۱–۷۰','۷۱–۸۰','بالای ۸۰','نامشخص'];let ages=ageBins.map(x=>[x,0]);rows.forEach(r=>{const n=Number(r['سن بیمار']);let i=!clean(r['سن بیمار'])||!Number.isFinite(n)?8:n<=18?0:n<=30?1:n<=40?2:n<=50?3:n<=60?4:n<=70?5:n<=80?6:7;ages[i][1]++});
  const defs=[
  ['shift','فراوانی خطا به تفکیک شیفت','توزیع تعداد ثبت‌ها در شیفت‌های کاری',shift,'bar'],
