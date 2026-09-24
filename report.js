@@ -54,6 +54,27 @@ function chartSlide(pptx,c,state){const s=base(pptx,'نمودار');title(s,pptx
   });
   addText(s,'عدد کنار هر میله، تعداد گزارش‌های همان نوع خطاست. عنوان‌های محور عمودی بدون کوتاه‌سازی نمایش داده شده‌اند.',{x:.84,y:6.63,w:11.65,h:.28},{fontSize:8.6,color:P.gray});return s;
  }
+ if(c.id==='cross'){
+  // Build the stacked bars from native Office shapes. Embedded chart workbooks
+  // with Persian series labels can trigger PowerPoint's repair dialog.
+  const colors=[P.teal,P.blue,P.gold,'9B79B8','D8756F','7296A3'];
+  const barX=5.65,barW=6.15,rowY=2.35,rowH=.67;
+  const max=Math.max(1,...c.data.map(d=>d.slice(1).reduce((sum,n)=>sum+(Number(n)||0),0)));
+  (c.series||[]).forEach((label,i)=>{const x=.95+(i%3)*4.04,y=1.79+Math.floor(i/3)*.27;
+   s.addShape(pptx.ShapeType.rect,{x,y:y+.05,w:.15,h:.15,line:{color:colors[i%colors.length]},fill:{color:colors[i%colors.length]}});
+   addText(s,label,{x:x+.24,y,w:3.68,h:.24},{fontSize:9.2,bold:true,color:P.ink});
+  });
+  c.data.forEach((d,i)=>{const y=rowY+i*rowH,total=d.slice(1).reduce((sum,n)=>sum+(Number(n)||0),0);
+   addText(s,d[0],{x:.84,y:y+.07,w:4.55,h:.35},{fontSize:11,bold:true,color:P.ink});
+   s.addShape(pptx.ShapeType.rect,{x:barX,y:y+.12,w:barW,h:.28,line:{color:P.rule},fill:{color:P.pale}});
+   let x=barX;d.slice(1).forEach((part,j)=>{const n=Number(part)||0;if(!n)return;
+    const w=n/max*barW;s.addShape(pptx.ShapeType.rect,{x,y:y+.12,w,h:.28,line:{color:colors[j%colors.length]},fill:{color:colors[j%colors.length]}});
+    if(w>.35)addText(s,n,{x,y:y+.135,w,h:.23},{fontSize:9.3,bold:true,color:P.white,rtlMode:false,align:'center'});x+=w;
+   });
+   addText(s,total,{x:11.95,y:y+.08,w:.55,h:.36},{fontSize:11,bold:true,rtlMode:false,align:'left',color:P.navy});
+  });
+  addText(s,'پنج واحد پرتکرار گزارش‌دهنده در همهٔ شیفت‌ها؛ عدد انتهای هر ردیف، جمع همان واحد است.',{x:.9,y:6.62,w:11.5,h:.27},{fontSize:9,color:P.gray});return s;
+ }
  const bars=c.type==='bar'||c.type==='cross';const options={x:1.03,y:1.85,w:11.15,h:c.id==='errorKind'?3.45:4.62,chartColors:[P.teal,P.blue,P.gold,'9B79B8','D8756F'],showTitle:false,showLegend:c.type==='cross'||(c.type==='donut'&&c.id!=='severity'),legendPos:'b',legendFontFace:font,legendFontSize:10,showValue:c.type!=='cross',showCatName:c.id==='severity',dataLabelFontFace:font,dataLabelFontBold:true,dataLabelFontSize:11,dataLabelColor:P.ink,dataLabelPosition:bars?'outEnd':'bestFit',showMarker:c.type==='line',showLine:true,showBorder:false,catAxisLabelFontFace:font,catAxisLabelFontBold:true,catAxisLabelFontSize:bars?10:11,catAxisLabelColor:P.ink,valAxisLabelFontFace:font,valAxisLabelFontBold:true,valAxisLabelFontSize:10,valAxisMinVal:0,valGridLine:{color:P.rule,width:.6},showShadow:false,barDir:'bar',barGrouping:c.type==='cross'?'stacked':'clustered',showHoleSize:55,layout:{x:.10,y:.08,w:.82,h:.8}};
  if(c.id==='severity'){options.x=1.1;options.y=1.95;options.w=6.5;options.h=4.2;options.showCatName=false;options.showLegend=false}
  s.addChart(kind,series,options);
